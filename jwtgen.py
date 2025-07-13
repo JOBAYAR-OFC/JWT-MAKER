@@ -173,7 +173,7 @@ def get_single_response():
                     "uid": uid,
                     "status": response_dict.get("status", "N/A"),
                     "token": response_dict.get("token", "N/A"),
-                    "credit": "@krnxcodez"
+                    "credit": "@GHOST_XMOD"
                 })
             except Exception as e:
                 return jsonify({
