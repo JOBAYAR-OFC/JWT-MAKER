@@ -85,7 +85,7 @@ def get_single_response():
     game_data.timestamp = "2024-12-05 18:15:32"
     game_data.game_name = "free fire"
     game_data.game_version = 1
-    game_data.version_code = "1.108.3"
+    game_data.version_code = "1.114.4"
     game_data.os_info = "Android OS 9 / API-28 (PI/rel.cjw.20220518.114133)"
     game_data.device_type = "Handheld"
     game_data.network_provider = "Verizon Wireless"
@@ -150,7 +150,7 @@ def get_single_response():
             'Expect': "100-continue",
             'X-Unity-Version': "2018.4.11f1",
             'X-GA': "v1 1",
-            'ReleaseVersion': "OB49"
+            'ReleaseVersion': "OB50"
         }
 
         response = requests.post(url, data=bytes.fromhex(edata), headers=headers, verify=False)
