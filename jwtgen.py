@@ -62,25 +62,57 @@ def parse_response(content):
             response_dict[key.strip()] = value.strip().strip('"')
     return response_dict
 
-@app.route('/token', methods=['GET'])
-@cache.cached(timeout=25200, query_string=True)
-def get_single_response():
-    uid = request.args.get('uid')
-    password = request.args.get('password')
+@app.route('/tokens', methods=['POST'])
+@cache.cached(timeout=25200)
+def get_multiple_tokens():
+    try:
+        accounts = request.get_json()
+        if not isinstance(accounts, list):
+            return jsonify({"error": "Invalid JSON format. Expected a list of accounts."}), 400
 
-    if not uid or not password:
-        return jsonify({"error": "Both uid and password parameters are required"}), 400
+        result = []
+        for acc in accounts:
+            uid = acc.get("uid")
+            password = acc.get("password")
 
-    token_data = get_token(password, uid)
-    if not token_data:
-        return jsonify({
-            "uid": uid,
-            "status": "invalid",
-            "message": "Wrong UID or Password. Please check and try again.",
-            "credit": "@GHOST_XMOD"
-        }), 400
+            if not uid or not password:
+                result.append({
+                    "uid": uid or "unknown",
+                    "status": "error",
+                    "message": "UID or Password missing"
+                })
+                continue
 
-    # -- Game Data as it is (unchanged) --
-    game_data = my_pb2.GameData()
-    game_data.timestamp = "2024-12-05 18:15:32"
-    game_data.game_name = "free fire"
+            token_data = get_token(password, uid)
+            if not token_data:
+                result.append({
+                    "uid": uid,
+                    "status": "invalid",
+                    "message": "Wrong UID or Password",
+                    "credit": "@GHOST_XMOD"
+                })
+                continue
+
+            # -- Game Data (OB50 or any version logic can go here) --
+            game_data = my_pb2.GameData()
+            game_data.timestamp = "2024-12-05 18:15:32"
+            game_data.game_name = "free fire"
+
+            result.append({
+                "uid": uid,
+                "status": "success",
+                "access_token": token_data.get("access_token"),
+                "open_id": token_data.get("open_id"),
+                "game_data": {
+                    "timestamp": game_data.timestamp,
+                    "game": game_data.game_name
+                }
+            })
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
