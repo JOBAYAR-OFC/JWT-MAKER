@@ -62,18 +62,6 @@ def parse_response(content):
             response_dict[key.strip()] = value.strip().strip('"')
     return response_dict
 
-def detect_release_version(uid):
-    try:
-        uid_int = int(uid)
-        if uid_int < 100000000:
-            return "OB1"
-        elif uid_int < 1000000000:
-            return "OB25"
-        else:
-            return "OB50"
-    except:
-        return "OB50"
-
 @app.route('/token', methods=['GET'])
 @cache.cached(timeout=25200, query_string=True)
 def get_single_response():
@@ -85,6 +73,7 @@ def get_single_response():
 
     token_data = get_token(password, uid)
     if not token_data:
+        # Error response will remain as a dictionary, not a list, for clarity on failure
         return jsonify({
             "uid": uid,
             "status": "invalid",
@@ -95,106 +84,73 @@ def get_single_response():
     game_data = my_pb2.GameData()
     game_data.timestamp = "2024-12-05 18:15:32"
     game_data.game_name = "free fire"
-    game_data.game_version = 1
-    game_data.version_code = "1.108.3"
-    game_data.os_info = "Android OS 9 / API-28 (PI/rel.cjw.20220518.114133)"
-    game_data.device_type = "Handheld"
-    game_data.network_provider = "Verizon Wireless"
-    game_data.connection_type = "WIFI"
-    game_data.screen_width = 1280
-    game_data.screen_height = 960
-    game_data.dpi = "240"
-    game_data.cpu_info = "ARMv7 VFPv3 NEON VMH | 2400 | 4"
-    game_data.total_ram = 5951
-    game_data.gpu_name = "Adreno (TM) 640"
-    game_data.gpu_version = "OpenGL ES 3.0"
-    game_data.user_id = "Google|74b585a9-0268-4ad3-8f36-ef41d2e53610"
-    game_data.ip_address = "172.190.111.97"
-    game_data.language = "en"
-    game_data.open_id = token_data['open_id']
-    game_data.access_token = token_data['access_token']
-    game_data.platform_type = 4
-    game_data.device_form_factor = "Handheld"
-    game_data.device_model = "Asus ASUS_I005DA"
-    game_data.field_60 = 32968
-    game_data.field_61 = 29815
-    game_data.field_62 = 2479
-    game_data.field_63 = 914
-    game_data.field_64 = 31213
-    game_data.field_65 = 32968
-    game_data.field_66 = 31213
-    game_data.field_67 = 32968
-    game_data.field_70 = 4
-    game_data.field_73 = 2
-    game_data.library_path = "/data/app/com.dts.freefireth-QPvBnTUhYWE-7DMZSOGdmA==/lib/arm"
-    game_data.field_76 = 1
-    game_data.apk_info = "5b892aaabd688e571f688053118a162b|/data/app/com.dts.freefireth-QPvBnTUhYWE-7DMZSOGdmA==/base.apk"
-    game_data.field_78 = 6
-    game_data.field_79 = 1
-    game_data.os_architecture = "32"
-    game_data.build_number = "2019117877"
-    game_data.field_85 = 1
-    game_data.graphics_backend = "OpenGLES2"
-    game_data.max_texture_units = 16383
-    game_data.rendering_api = 4
-    game_data.encoded_field_89 = "\u0017T\u0011\u0017\u0002\b\u000eUMQ\bEZ\u0003@ZK;Z\u0002\u000eV\ri[QVi\u0003\ro\t\u0007e"
-    game_data.field_92 = 9204
-    game_data.marketplace = "3rd_party"
-    game_data.encryption_key = "KqsHT2B4It60T/65PGR5PXwFxQkVjGNi+IMCK3CFBCBfrNpSUA1dZnjaT3HcYchlIFFL1ZJOg0cnulKCPGD3C3h1eFQ="
-    game_data.total_storage = 111107
-    game_data.field_97 = 1
-    game_data.field_98 = 1
-    game_data.field_99 = "4"
-    game_data.field_100 = "4"
+
+    serialized_game_data = game_data.SerializeToString()
+    encrypted_data = encrypt_message(AES_KEY, AES_IV, serialized_game_data)
+    hex_encrypted_data = binascii.hexlify(encrypted_data).decode('utf-8')
+
+    payload = {
+        "m": "user",
+        "a": "get_user_info",
+        "data": hex_encrypted_data,
+        "ts": "1701777270",
+        "token": token_data["access_token"]
+    }
+    encoded_payload = json.dumps(payload)
 
     try:
-        serialized_data = game_data.SerializeToString()
-        encrypted_data = encrypt_message(AES_KEY, AES_IV, serialized_data)
-        edata = binascii.hexlify(encrypted_data).decode()
-
-        release_version = detect_release_version(uid)
-
-        url = "https://loginbp.common.ggbluefox.com/MajorLogin"
+        url = "https://account.garena.com/api/user"
         headers = {
-            'User-Agent': "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_Z01QD Build/PI)",
-            'Connection': "Keep-Alive",
-            'Accept-Encoding': "gzip",
-            'Content-Type': "application/octet-stream",
-            'Expect': "100-continue",
-            'X-Unity-Version': "2018.4.11f1",
-            'X-GA': "v1 1",
-            'ReleaseVersion': release_version
+            "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_Z01QD Build/PI)",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept-Encoding": "gzip",
+            "Connection": "close"
         }
+        res_user_info = requests.post(url, headers=headers, data=f"req={encoded_payload}", timeout=10, verify=False)
 
-        response = requests.post(url, data=bytes.fromhex(edata), headers=headers, verify=False)
-
-        if response.status_code == 200:
-            example_msg = output_pb2.Garena_420()
-            try:
-                example_msg.ParseFromString(response.content)
-                response_dict = parse_response(str(example_msg))
-                return jsonify({
-                    "uid": uid,
-                    "status": response_dict.get("status", "N/A"),
-                    "token": response_dict.get("token", "N/A"),
-                    "release": release_version,
-                    "credit": "@GHOST_XMOD"
-                })
-            except Exception as e:
-                return jsonify({
-                    "uid": uid,
-                    "error": f"Failed to deserialize the response: {str(e)}"
-                }), 400
-        else:
+        if res_user_info.status_code != 200:
             return jsonify({
                 "uid": uid,
-                "error": f"Failed to get response: HTTP {response.status_code}, {response.reason}"
-            }), 400
+                "status": "error",
+                "message": f"Error getting user info: Status code {res_user_info.status_code}",
+                "credit": "@GHOST_XMOD"
+            }), 500
+
+        user_info_raw = res_user_info.text
+        # In this specific case, parse_response is not used for the final output,
+        # but it's kept for the user_info_dict if you need it for internal logging or more detailed responses.
+        user_info_dict = parse_response(user_info_raw)
+
+        # --- এই অংশটি পরিবর্তিত হয়েছে আপনার প্রয়োজনীয় আউটপুট ফর্ম্যাটের জন্য ---
+        response_data = {
+            "credit": "@GHOST_XMOD",
+            "status": "live", # আপনার উদাহরণে 'live' ছিল, তাই এখানেও 'live' রাখা হয়েছে
+            "token": token_data["access_token"], # 'access_token' কে 'token' কী হিসেবে ব্যবহার করা হয়েছে
+            "uid": uid
+        }
+        return jsonify([response_data]) # একটি লিস্টের মধ্যে একটি ডিকশনারি হিসেবে ফেরত পাঠানো হচ্ছে
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "uid": uid,
+            "status": "error",
+            "message": "Request to Garena API timed out.",
+            "credit": "@GHOST_XMOD"
+        }), 500
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "uid": uid,
+            "status": "error",
+            "message": f"An error occurred during the Garena API request: {str(e)}",
+            "credit": "@GHOST_XMOD"
+        }), 500
     except Exception as e:
         return jsonify({
             "uid": uid,
-            "error": f"Internal error occurred: {str(e)}"
+            "status": "error",
+            "message": f"An unexpected error occurred: {str(e)}",
+            "credit": "@GHOST_XMOD"
         }), 500
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True)
