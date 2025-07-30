@@ -150,7 +150,7 @@ def get_single_response():
             'Expect': "100-continue",
             'X-Unity-Version': "2018.4.11f1",
             'X-GA': "v1 1",
-            'ReleaseVersion': "OB49"
+            'ReleaseVersion': "OB50"
         }
 
         response = requests.post(url, data=bytes.fromhex(edata), headers=headers, verify=False)
