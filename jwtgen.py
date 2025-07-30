@@ -62,57 +62,119 @@ def parse_response(content):
             response_dict[key.strip()] = value.strip().strip('"')
     return response_dict
 
-@app.route('/tokens', methods=['POST'])
-@cache.cached(timeout=25200)
-def get_multiple_tokens():
+@app.route('/token', methods=['GET'])
+@cache.cached(timeout=25200, query_string=True)
+def get_single_response():
+    uid = request.args.get('uid')
+    password = request.args.get('password')
+
+    if not uid or not password:
+        return jsonify({"error": "Both uid and password parameters are required"}), 400
+
+    token_data = get_token(password, uid)
+    if not token_data:
+        return jsonify({
+            "uid": uid,
+            "status": "invalid",
+            "message": "Wrong UID or Password. Please check and try again.",
+            "credit": "@GHOST_XMOD"
+        }), 400
+
+    # --- Dynamic Game Data Handling (New Section) ---
+    # Here, we're keeping it as is because it's not explicitly stated
+    # that 'timestamp' or 'game_name' depend on 'obi' versions 49-50.
+    # If they do, you would implement logic here to set them based on
+    # an 'obi_version' parameter (e.g., from request.args.get('obi_version'))
+    # or by inferring it from the UID if possible.
+
+    game_data = my_pb2.GameData()
+    game_data.timestamp = "2024-12-05 18:15:32"  # This value might need to be dynamic
+    game_data.game_name = "free fire"           # This value might need to be dynamic
+
+    # Example of how you *would* make it dynamic if 'obi' version mattered:
+    # obi_version = request.args.get('obi_version')
+    # if obi_version == '49':
+    #     game_data.timestamp = "TIMESTAMP_FOR_OBI_49"
+    #     game_data.game_name = "free fire"
+    # elif obi_version == '50':
+    #     game_data.timestamp = "TIMESTAMP_FOR_OBI_50"
+    #     game_data.game_name = "free fire"
+    # else:
+    #     # Default or error handling
+    #     game_data.timestamp = "2024-12-05 18:15:32"
+    #     game_data.game_name = "free fire"
+    # --- End Dynamic Game Data Handling ---
+
+    # Your existing code continues from here:
+    # Convert Protobuf message to bytes
+    serialized_game_data = game_data.SerializeToString()
+
+    # Encrypt the serialized data
+    encrypted_data = encrypt_message(AES_KEY, AES_IV, serialized_game_data)
+    hex_encrypted_data = binascii.hexlify(encrypted_data).decode('utf-8')
+
+    # Prepare the payload for the second request
+    payload = {
+        "m": "user",
+        "a": "get_user_info",
+        "data": hex_encrypted_data,
+        "ts": "1701777270",
+        "token": token_data["access_token"]
+    }
+    encoded_payload = json.dumps(payload)
+
     try:
-        accounts = request.get_json()
-        if not isinstance(accounts, list):
-            return jsonify({"error": "Invalid JSON format. Expected a list of accounts."}), 400
+        url = "https://account.garena.com/api/user"
+        headers = {
+            "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 9; ASUS_Z01QD Build/PI)",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept-Encoding": "gzip",
+            "Connection": "close"
+        }
+        res_user_info = requests.post(url, headers=headers, data=f"req={encoded_payload}", timeout=10, verify=False)
 
-        result = []
-        for acc in accounts:
-            uid = acc.get("uid")
-            password = acc.get("password")
-
-            if not uid or not password:
-                result.append({
-                    "uid": uid or "unknown",
-                    "status": "error",
-                    "message": "UID or Password missing"
-                })
-                continue
-
-            token_data = get_token(password, uid)
-            if not token_data:
-                result.append({
-                    "uid": uid,
-                    "status": "invalid",
-                    "message": "Wrong UID or Password",
-                    "credit": "@GHOST_XMOD"
-                })
-                continue
-
-            # -- Game Data (OB50 or any version logic can go here) --
-            game_data = my_pb2.GameData()
-            game_data.timestamp = "2024-12-05 18:15:32"
-            game_data.game_name = "free fire"
-
-            result.append({
+        if res_user_info.status_code != 200:
+            return jsonify({
                 "uid": uid,
-                "status": "success",
-                "access_token": token_data.get("access_token"),
-                "open_id": token_data.get("open_id"),
-                "game_data": {
-                    "timestamp": game_data.timestamp,
-                    "game": game_data.game_name
-                }
-            })
+                "status": "error",
+                "message": f"Error getting user info: Status code {res_user_info.status_code}",
+                "credit": "@GHOST_XMOD"
+            }), 500
 
-        return jsonify(result)
+        user_info_raw = res_user_info.text
+        user_info_dict = parse_response(user_info_raw)
 
+        return jsonify({
+            "uid": uid,
+            "status": "success",
+            "message": "Login successful",
+            "access_token": token_data["access_token"],
+            "open_id": token_data["open_id"],
+            "user_info": user_info_dict,
+            "credit": "@GHOST_XMOD"
+        })
+
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "uid": uid,
+            "status": "error",
+            "message": "Request to Garena API timed out.",
+            "credit": "@GHOST_XMOD"
+        }), 500
+    except requests.exceptions.RequestException as e:
+        return jsonify({
+            "uid": uid,
+            "status": "error",
+            "message": f"An error occurred during the Garena API request: {str(e)}",
+            "credit": "@GHOST_XMOD"
+        }), 500
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "uid": uid,
+            "status": "error",
+            "message": f"An unexpected error occurred: {str(e)}",
+            "credit": "@GHOST_XMOD"
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
