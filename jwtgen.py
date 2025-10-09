@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 
-app = Flask(name)
+app = Flask(__name__)
 
 # 🔧 Change this link anytime
 BASE_API = "https://momin-x-jwt.onrender.com/token"
@@ -21,7 +21,15 @@ def proxy_token():
     try:
         # Send request to the original API
         response = requests.get(f"{BASE_API}?uid={uid}&password={password}", timeout=10)
-        data = response.json()
+
+        try:
+            data = response.json()
+        except ValueError:
+            return jsonify({
+                "message": "Invalid response from upstream API",
+                "status": "error",
+                "credit": "CREDIT : @JOBAYAR_AHMED"
+            }), 502
 
         # Add custom credit
         data["credit"] = "CREDIT : @JOBAYAR_AHMED"
@@ -44,6 +52,7 @@ def proxy_token():
         }), 500
 
 
-if name == 'main':
-    # Run server on your desired host/port
+# ✅ Don't run the app manually on Vercel
+# Use this only for local testing
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
