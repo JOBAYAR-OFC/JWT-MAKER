@@ -1,9 +1,5 @@
 Flask
-requests
+Flask-Cors
+httpx
 pycryptodomex
 protobuf
-google
-http
-pycryptodom
-protobu
-google
