@@ -1,6 +1,5 @@
-Flask
-flask-caching
-requests
-pycryptodome
-protobuf
-colorama
+flas
+http
+pycryptodom
+protobu
+googl
