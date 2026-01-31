@@ -1,8 +1,26 @@
 {
-  "builds": [
-    { "src": "app.py", "use": "@vercel/python" }
-  ],
+  "functions": {
+    "api/app.py": {
+      "runtime": "python3.11",
+      "maxDuration": 30
+    }
+  },
   "routes": [
-    { "src": "/(.*)", "dest": "app.py" }
+    {
+      "src": "/(.*)",
+      "dest": "/api/app.py"
+    }
+  ],
+  "builds": [
+    {
+      "src": "api/app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/app.py"
+    }
   ]
 }
