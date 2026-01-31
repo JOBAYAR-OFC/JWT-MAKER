@@ -26,7 +26,7 @@ except Exception as e:
 MAIN_KEY = base64.b64decode('WWcmdGMlREV1aDYlWmNeOA==')
 MAIN_IV = base64.b64decode('Nm95WkRyMjJFM3ljaGpNJQ==')
 USERAGENT = "Dalvik/2.1.0 (Linux; U; Android 13; CPH2095 Build/RKQ1.211119.001)"
-RELEASEVERSION = "OB50"
+RELEASEVERSION = "OB52"
 
 # Flask app
 app = Flask(__name__)
